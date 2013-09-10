@@ -26,6 +26,12 @@ websocket_init(_Any, Req, _Opts) ->
     {ServiceUrl, _Req1} = cowboy_req:path(Req),
     {SessionId, _Req2}  = cowboy_req:cookie(list_to_binary(SessionKey), Req),
     WebsocketId = self(),    
+    case register_websockets_in_gproc() of
+        true ->
+            gproc:reg({n, l, SessionId});
+        false ->
+            ok
+    end,
     State= #state{websocket_id=WebsocketId, 
 		  session_id=SessionId,
 		  service_url=ServiceUrl},
@@ -57,5 +63,16 @@ websocket_terminate(Reason, Req, State) ->
     #state{websocket_id=WebsocketId, 
 	   session_id=SessionId, 
 	   service_url=ServiceUrl } = State,
+	case register_websockets_in_gproc() of
+        true ->
+            gproc:unreg({n,l, SessionId});
+        false ->
+            ok
+	end,
     boss_websocket_router:close(Reason, ServiceUrl, WebsocketId, Req, SessionId),
     ok.
+
+register_websockets_in_gproc() ->
+    GprocEnable = boss_env:get_env(gproc_enable, false),
+    WebsocketGprocEnable = boss_env:get_env(websocket_gproc_enable, false),
+    GprocEnable andalso WebsocketGprocEnable.

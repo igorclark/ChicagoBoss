@@ -136,6 +136,8 @@ init(Config) ->
     SSLOptions = boss_env:get_env(ssl_options, []),
     error_logger:info_msg("SSL:~p~n", [SSLOptions]),
 
+    GprocEnable = boss_env:get_env(gproc_enable, false),
+
     {ok, ServicesSupPid}  = case MasterNode of
 				ThisNode ->
 				    boss_service_sup:start_link();
@@ -164,6 +166,13 @@ init(Config) ->
                   SSLConfig = [{port, HttpPort}]++SSLOptions,
                   cowboy:start_https(boss_https_listener, AcceptorCount, SSLConfig, [{env, []}])
 		  end,
+          case GprocEnable of
+              true ->
+                  error_logger:info_msg("Starting gproc process directory..."),
+                  application:start(gproc);
+              false ->
+                  ok
+          end,
 		  if
               MasterNode =:= ThisNode ->
                   boss_service_sup:start_services(ServicesSupPid, boss_websocket_router);
